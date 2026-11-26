@@ -1,0 +1,46 @@
+VANGUARD COMMANDER – MAC-VERSION BAUEN UND TESTEN
+==================================================
+
+Danke fürs Bauen! Dauer: ca. 10–15 Minuten, davon meist Warten.
+
+1) PYTHON PRÜFEN
+   Programm "Terminal" öffnen (Programme → Dienstprogramme → Terminal) und eintippen:
+
+       python3 --version
+
+   Steht dort 3.10 oder höher: weiter mit Schritt 2.
+   Sonst (oder Fehlermeldung): Python installieren von
+       https://www.python.org/downloads/macos/
+   den "macOS 64-bit universal2 installer" nehmen, durchklicken, Terminal schließen und neu öffnen.
+
+2) ORDNER ENTPACKEN
+   Das ZIP z. B. in "Downloads" entpacken. Es entsteht ein Ordner "VanguardCommander".
+
+3) BAUEN
+   Im Terminal "cd " tippen (mit Leerzeichen danach), dann den Ordner aus dem Finder ins
+   Terminal-Fenster ziehen und Enter drücken. Danach:
+
+       bash build/build_macos.sh
+
+   Das Skript erkennt selbst die macOS-Version und den Prozessor (Intel / Apple Silicon),
+   lädt alles Nötige, prüft es mit Tests und baut die App.
+   Am Ende öffnet sich der Ordner "dist" im Finder.
+
+4) ZURÜCKSCHICKEN
+   In "dist" liegt eine Datei  VanguardCommander-…-macOS-x86_64.zip  (Intel)
+   bzw.  …-macOS-arm64.zip  (Apple Silicon). Diese bitte zurückschicken.
+
+5) TESTEN (gerne!)
+   "VanguardCommander.app" in "dist" per Doppelklick starten.
+   Es kann ohne eigenen Server getestet werden: Fenster, Dateien links, Einstellungen, Hilfe (F1).
+   Mit Server: Profil anlegen (Host, Benutzer), "Verbinden".
+
+   Auf einem ANDEREN Mac (z. B. wenn die ZIP weitergegeben wird) blockiert macOS beim ersten Start,
+   weil die App nicht von Apple signiert ist:
+     - Systemeinstellungen → Datenschutz & Sicherheit → unten "Trotzdem öffnen"
+     - bis macOS 14 geht auch: Rechtsklick auf die App → Öffnen → Öffnen
+
+WENN ETWAS SCHIEFGEHT
+   Die letzten ~30 Zeilen aus dem Terminal kopieren und zurückschicken.
+   Fehler beim Start der App stehen in:
+       ~/Library/Application Support/VanguardCommander/vanguard.log
