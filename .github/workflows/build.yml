@@ -1,0 +1,102 @@
+# Baut Windows, macOS (Apple Silicon + Intel) und Linux.
+# - Manuell: Actions → Build → Run workflow (Dateien unter "Artifacts")
+# - Release: Tag anlegen, z. B. "v6.2.0-beta2" → fertige Dateien hängen automatisch am GitHub-Release
+name: Build
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+          - os: macos-15            # Apple Silicon (M1 und neuer)
+            label: macOS-AppleSilicon
+          - os: macos-15-intel      # Intel-Mac (letztes Intel-Image von GitHub, bis Aug. 2027)
+            label: macOS-Intel
+          - os: ubuntu-22.04
+            label: Linux
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Qt-Bibliotheken (Linux)
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxcb-cursor0 libxkbcommon-x11-0 libegl1
+      - run: python -m pip install -r requirements.txt -r requirements-build.txt
+      - run: python -m unittest discover -s tests -v
+      - run: pyinstaller --noconfirm --clean --workpath .pyi-work build/vanguard_commander.spec
+      - name: Paketieren (macOS)
+        if: runner.os == 'macOS'
+        run: cd dist && ditto -c -k --keepParent VanguardCommander.app VanguardCommander-${{ matrix.label }}.zip
+      - name: Paketieren (Linux)
+        if: runner.os == 'Linux'
+        run: cd dist && tar czf VanguardCommander-Linux-x86_64.tar.gz VanguardCommander
+      - uses: actions/upload-artifact@v4
+        with:
+          name: VanguardCommander-${{ matrix.label }}
+          path: |
+            dist/VanguardCommander.exe
+            dist/VanguardCommander-*.zip
+            dist/VanguardCommander-*.tar.gz
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Dateien benennen
+        run: |
+          mkdir out
+          V="${GITHUB_REF_NAME}"
+          cp artifacts/VanguardCommander-Windows/VanguardCommander.exe "out/VanguardCommander-${V}-Windows.exe"
+          cp artifacts/VanguardCommander-macOS-AppleSilicon/*.zip "out/VanguardCommander-${V}-macOS-AppleSilicon.zip"
+          cp artifacts/VanguardCommander-macOS-Intel/*.zip "out/VanguardCommander-${V}-macOS-Intel.zip"
+          cp artifacts/VanguardCommander-Linux/*.tar.gz "out/VanguardCommander-${V}-Linux-x86_64.tar.gz"
+          (cd out && sha256sum * > SHA256SUMS.txt)
+          ls -la out
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: out/*
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+          generate_release_notes: true
+````
+
+**3. Name: `.github/ISSUE_TEMPLATE/bug_report.md`**
+````
+---
+name: Bug report / Fehler melden
+about: Something does not work as expected / Etwas funktioniert nicht wie erwartet
+labels: bug
+---
+
+**What happened? / Was ist passiert?**
+
+**Steps to reproduce / Schritte zum Nachstellen**
+1.
+2.
+
+**Expected / Erwartet**
+
+**Environment / Umgebung**
+- Vanguard Commander version (F1 → bottom):
+- OS (Windows 11 / macOS 14 / …):
+- Server OS (Debian 12 / Ubuntu 24.04 / …), Docker yes/no:
+
+**Log** – last lines of `vanguard.log` (F1 shows the path). Please remove host names / IP addresses.
+````
+````
