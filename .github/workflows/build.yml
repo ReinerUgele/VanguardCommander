@@ -1,6 +1,6 @@
 # Baut Windows, macOS (Apple Silicon + Intel) und Linux.
 # - Manuell: Actions → Build → Run workflow (Dateien unter "Artifacts")
-# - Release: Tag anlegen, z. B. "v6.2.0-beta2" → fertige Dateien hängen automatisch am GitHub-Release
+# - Release: Tag pushen, z. B. "v6.2.0-beta1" → fertige Dateien hängen automatisch am GitHub-Release
 name: Build
 on:
   workflow_dispatch:
@@ -74,29 +74,3 @@ jobs:
           files: out/*
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
           generate_release_notes: true
-````
-
-**3. Name: `.github/ISSUE_TEMPLATE/bug_report.md`**
-````
----
-name: Bug report / Fehler melden
-about: Something does not work as expected / Etwas funktioniert nicht wie erwartet
-labels: bug
----
-
-**What happened? / Was ist passiert?**
-
-**Steps to reproduce / Schritte zum Nachstellen**
-1.
-2.
-
-**Expected / Erwartet**
-
-**Environment / Umgebung**
-- Vanguard Commander version (F1 → bottom):
-- OS (Windows 11 / macOS 14 / …):
-- Server OS (Debian 12 / Ubuntu 24.04 / …), Docker yes/no:
-
-**Log** – last lines of `vanguard.log` (F1 shows the path). Please remove host names / IP addresses.
-````
-````
