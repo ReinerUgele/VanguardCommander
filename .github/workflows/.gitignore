@@ -1,0 +1,12 @@
+*.pyc
+*.spec.bak
+*.zip
+.DS_Store
+.mypy_cache/
+.pyi-work/
+.venv-build/
+.venv/
+Thumbs.db
+__pycache__/
+_to_delete/
+dist/
