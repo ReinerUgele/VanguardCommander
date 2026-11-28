@@ -1,5 +1,13 @@
 # Changelog
 
+## 6.2.0 Beta 2
+
+* Fix: cancelling a download in SSH-only mode froze until the connection was closed. paramiko requested the
+  whole file in advance, so the cancel had to wait for the rest of it (for a 90 GB model: minutes, and RAM).
+  Read-ahead is now limited, and a cancel cuts the SFTP channel at once (upload too)
+* Fix: Esc in the transfer dialog only hid the window while the transfer kept running; it now cancels.
+  The dialog shows "Breche ab …" until the transfer has really stopped
+
 ## 6.2.0 Beta 1 – first public release
 
 Complete rewrite of the former internal tool (v5).

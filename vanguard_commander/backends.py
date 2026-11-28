@@ -27,6 +27,32 @@ OnBytes = Callable[[int], None]
 OnData = Callable[[bytes], None]
 Cancelled = Callable[[], bool]
 
+# Höchstzahl gleichzeitig offener SFTP-Leseanfragen (je 32 KiB) beim Herunterladen.
+PREFETCH_REQUESTS = 128
+
+
+def _close_sftp(sftp, fh=None, hard: bool = False) -> None:
+    """SFTP-Sitzung schließen. hard=True (Abbruch/Fehler): Kanal sofort kappen, statt auf
+    ausstehende Antworten des Servers zu warten – sonst hängt der Abbruch."""
+    if hard:
+        try:
+            sftp.get_channel().close()
+        except Exception:  # noqa: BLE001
+            pass
+        # paramikos Vorauslese-Thread wartet sonst ewig auf Antworten, die nie mehr kommen.
+        extents = getattr(fh, "_prefetch_extents", None)
+        if isinstance(extents, dict):
+            extents.clear()
+    if fh is not None:
+        try:
+            fh.close()
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        sftp.close()
+    except Exception:  # noqa: BLE001
+        pass
+
 
 @dataclass
 class ExecResult:
@@ -419,8 +445,9 @@ class SshBackend:
                 old_mode = stat.S_IMODE(sftp.stat(remote).st_mode or 0o644)
             except FileNotFoundError:
                 old_mode = 0o644
-            with sftp.open(tmp, "wb") as fh:
-                fh.set_pipelined(True)
+            fh = sftp.open(tmp, "wb")
+            fh.set_pipelined(True)
+            try:
                 while True:
                     if cancelled():
                         raise BackendError("Abgebrochen.")
@@ -429,6 +456,14 @@ class SshBackend:
                         break
                     fh.write(chunk)
                     on_bytes(len(chunk))
+                fh.close()
+            except BaseException:
+                # Abbruch/Fehler: nicht auf die Bestätigung aller ausstehenden Schreibpakete warten,
+                # sondern den Kanal kappen und die Reste über eine frische Sitzung entfernen.
+                _close_sftp(sftp, fh, hard=True)
+                self._remove_quietly(tmp)
+                tmp = ""
+                raise
             sftp.chmod(tmp, old_mode)
             sftp.posix_rename(tmp, remote)
             tmp = ""
@@ -438,7 +473,19 @@ class SshBackend:
                     sftp.remove(tmp)
                 except OSError:
                     pass
-            sftp.close()
+            _close_sftp(sftp)
+
+    def _remove_quietly(self, path: str) -> None:
+        try:
+            sftp = self.conn.open_sftp()
+        except Exception:  # noqa: BLE001
+            return
+        try:
+            sftp.remove(path)
+        except Exception:  # noqa: BLE001
+            pass
+        finally:
+            _close_sftp(sftp)
 
     def push_file(self, local: Path, remote: str, on_bytes: OnBytes = lambda n: None,
                   cancelled: Cancelled = _no) -> None:
@@ -454,9 +501,17 @@ class SshBackend:
         local.parent.mkdir(parents=True, exist_ok=True)
         part = local.with_name(local.name + ".vanguard-part")
         sftp = self.conn.open_sftp()
+        src = None
+        aborted = False
         try:
-            with sftp.open(remote, "rb") as src, open(part, "wb") as dst:
-                src.prefetch()
+            src = sftp.open(remote, "rb")
+            # Vorauslesen begrenzen: ohne Grenze fordert paramiko die GANZE Datei auf einmal an.
+            # Beim Abbrechen müsste dann erst der komplette Rest ankommen (bei 90 GB ein „Einfrieren“).
+            try:
+                src.prefetch(max_concurrent_requests=PREFETCH_REQUESTS)
+            except TypeError:  # paramiko < 3.3 kennt keine Grenze → lieber ohne Vorauslesen
+                pass
+            with open(part, "wb") as dst:
                 while True:
                     if cancelled():
                         raise BackendError("Abgebrochen.")
@@ -466,8 +521,11 @@ class SshBackend:
                     dst.write(chunk)
                     on_bytes(len(chunk))
             os.replace(part, local)
+        except BaseException:
+            aborted = True
+            raise
         finally:
-            sftp.close()
+            _close_sftp(sftp, src, hard=aborted)
             if part.exists():
                 part.unlink()
 

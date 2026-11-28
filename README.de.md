@@ -2,7 +2,7 @@
 
 **Deutsch** · [English](README.md)
 
-# Vanguard Commander 6.2.0 Beta 1
+# Vanguard Commander 6.2.0 Beta 2
 
 Fernverwaltung für Linux-Server: Dateien, Docker und Compose, Firewall, Live-Logs, Server-Status, mehrere SSH-Terminals.
 Läuft als eigenständiges Programm unter **Windows, macOS und Linux**.

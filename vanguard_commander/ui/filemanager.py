@@ -945,7 +945,7 @@ class FileManagerTab(QWidget):
             after()
 
         task = self.main.tasks.run(job, *args, with_task=True, on_ok=done, on_fail=fail, on_progress=dlg.on_progress)
-        dlg.btn_cancel.clicked.connect(task.cancel)
+        dlg.cancel_requested.connect(task.cancel)
         dlg.exec()
 
     # --- Editor --------------------------------------------------------------------------

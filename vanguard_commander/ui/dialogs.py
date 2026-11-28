@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import time
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, pyqtSignal
 from PyQt6.QtGui import QFont, QKeySequence, QShortcut, QTextDocument
 from PyQt6.QtWidgets import (
     QCheckBox, QDialog, QDialogButtonBox, QFormLayout, QHBoxLayout, QLabel, QLineEdit, QMessageBox,
@@ -214,6 +214,8 @@ class FileEditorDialog(QDialog):
 
 
 class TransferDialog(QDialog):
+    cancel_requested = pyqtSignal()
+
     def __init__(self, parent, title: str):
         super().__init__(parent)
         self.setWindowTitle(title)
@@ -228,10 +230,28 @@ class TransferDialog(QDialog):
         self.stats = QLabel("")
         v.addWidget(self.stats)
         self.btn_cancel = QPushButton("Abbrechen")
+        self.btn_cancel.clicked.connect(self.request_cancel)
         v.addWidget(self.btn_cancel, alignment=Qt.AlignmentFlag.AlignRight)
         self._t0 = time.monotonic()
+        self._cancelling = False
+
+    def request_cancel(self) -> None:
+        """Abbruch anfordern. Das Fenster bleibt offen, bis die Übertragung wirklich steht."""
+        if self._cancelling:
+            return
+        self._cancelling = True
+        self.btn_cancel.setEnabled(False)
+        self.btn_cancel.setText("Breche ab …")
+        self.lbl.setText("Breche ab …")
+        self.cancel_requested.emit()
+
+    def reject(self) -> None:
+        # Esc schloss früher nur das Fenster, die Übertragung lief unsichtbar weiter.
+        self.request_cancel()
 
     def on_progress(self, info):
+        if self._cancelling:
+            return
         kind = info[0]
         if kind == "file":
             _, idx, count, name = info
